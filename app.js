@@ -98,6 +98,8 @@ function verb(l) {
   if (l.agent === "analyst") return a === "pass" ? `scored $${l.symbol} ${r} ✓` : `scored $${l.symbol} ${r} ✕`;
   if (a === "buy") return `paper-bought $${l.symbol} · ${r}`;
   if (a === "exit") return `closed $${l.symbol} · ${r}`;
+  if (a === "take1" || a === "take2") return `$${l.symbol} ${r}`;
+  if (a === "trail_armed" || a === "cap") return r;
   return `${a} $${l.symbol} ${r}`;
 }
 function logLine(l) {
@@ -117,7 +119,7 @@ function deskCard() {
     auditor: [la && !la.passed ? `latest 💀 ${la.reason}` : la ? `latest ${la.mint.slice(0,4)} 8/8 clean` : "no coin reached audit yet", `${surv} survive`],
     analyst: [an ? `last score ${an.score} vs ${st["analyst.min_score"]} needed` : `scores survivors · needs ${st["analyst.min_score"]}`, `${a.analyst.scored} scored`],
     executor: [`cap ${st["executor.stack_pct"]}% of stack` + (ex && ex.sizeUsd ? ` · last ${usd(ex.sizeUsd)}` : " · no trades yet"), `${a.executor.trades}`],
-    risk: [`stop -${a.risk.stopPct}% · trail ${a.risk.trailPct}%` + (rl ? ` · last ${rl.reason}` : ""), a.risk.open.length ? `${a.risk.open.length} open` : "idle"],
+    risk: [(a.risk.cap && a.risk.cap.blocked === "daily cap hit" ? "DAILY CAP HIT · no new entries · " : "") + `stop -${a.risk.stopPct}% · ladder +100%½ +200%¼ · trail ${a.risk.ladder ? a.risk.ladder.POST_TAKE_TRAIL_PCT : 30}%` + (a.risk.cap ? ` · day $${a.risk.cap.dayPnl.toFixed(2)}/-$${a.risk.cap.capUsd}` : "") + (a.risk.lastLadder ? ` · ${a.risk.lastLadder}` : (rl ? ` · last ${rl.reason}` : "")), a.risk.open.length ? `${a.risk.open.length}/${a.risk.cap ? a.risk.cap.maxOpen : 4} open` : "idle"],
     logger: ["reason for all · every decision logged", `${lg.reasons} reasons`],
   };
   const row = k => { const [n, c, ic] = AG[k], age = k === "logger" ? null : hb[k];
