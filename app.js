@@ -129,7 +129,7 @@ function deskCard() {
       <div class="am"><div class="an">${n} <span class="pd ${fresh?"on":""}" style="--c:${c}"></span><span class="age">${k==="logger"?"":ago(age)}</span></div>
       <div class="as">${h(rows[k][0])}</div><div class="now" style="color:${c}">${h(nowTxt)}</div></div>
       <div class="mb" style="color:${c};background:${c}1f">${h(rows[k][1])}</div></div>`; };
-  return `<div class="box hero"><div class="bh"><b>Desk • 6 agents</b><span><span class="mu">${scanned} scanned</span> <span class="g">${traded} traded</span></span></div>
+  return `<div class="box hero"><div class="bh"><b>Desk • 6 agents</b><span>${s.timing && s.timing.avgDecisionS != null ? `<span class="mu" style="font-size:11px">avg decision ${s.timing.avgDecisionS}s</span> ` : ""}<span class="mu">${scanned} scanned</span> <span class="g">${traded} traded</span></span></div>
     ${Object.keys(AG).map(row).join("")}</div>
    <div class="box"><div class="bh"><b>Live feed</b><span class="kb">${lg.killed} killed</span></div>
     <div class="feed">${lines.slice(0, 25).map(logLine).join("") || `<div class="state">Nothing logged ${night?"since 23:00":"yet"}.</div>`}</div></div>`;
