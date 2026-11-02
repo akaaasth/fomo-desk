@@ -13,6 +13,7 @@ const D = { state:null, chart:null, activity:null, err:null };
 let tab = "home", sub = null;
 
 const BASE = location.hostname.endsWith("github.io") ? `https://raw.githubusercontent.com/akaaasth/fomo-desk/data/d/${DP}/` : `d/${DP}/`;
+const HS = x => x ? `<div class="layer"><span>Top 10 / 50 / 100</span><span>${x.top10.toFixed(1)}% / ${x.top50.toFixed(1)}% / ${x.top100.toFixed(1)}%</span></div><div class="layer"><span>Holders · largest · linked</span><span>${x.holders} · ${x.largest.toFixed(1)}% · ${x.cluster}</span></div>` : "";
 async function get(f) { const r = await fetch(`${BASE}${f}?t=${Date.now()}`, {cache:"no-store"}); if (!r.ok) throw new Error(r.status); return r.json(); }
 async function load() {
   if (!DP) { D.err = "No data link. Open the app with the link that ends in #d=…"; return render(); }
@@ -116,7 +117,7 @@ function deskCard() {
   const la = a.auditor.last, an = a.analyst.last, ex = a.executor.last, rl = a.risk.lastExit;
   const rows = {
     scanner: [`new pairs · ${a.scanner.pools} seen · ${a.scanner.waiting} waiting`, `${a.scanner.pools}`],
-    auditor: [la && !la.passed ? `latest 💀 ${la.reason}` : la ? `latest ${la.mint.slice(0,4)} 8/8 clean` : "no coin reached audit yet", `${surv} survive`],
+    auditor: [la && !la.passed ? `latest 💀 ${la.reason}` : la ? `latest ${la.mint.slice(0,4)} 8/8 clean` + (la.holderStats ? ` · t100 ${la.holderStats.top100.toFixed(0)}%` : "") : "no coin reached audit yet", `${surv} survive`],
     analyst: [an ? `last score ${an.score} vs ${st["analyst.min_score"]} needed` : `scores survivors · needs ${st["analyst.min_score"]}`, `${a.analyst.scored} scored`],
     executor: [`cap ${st["executor.stack_pct"]}% of stack` + (ex && ex.sizeUsd ? ` · last ${usd(ex.sizeUsd)}` : " · no trades yet"), `${a.executor.trades}`],
     risk: [(a.risk.cap && a.risk.cap.blocked === "daily cap hit" ? "DAILY CAP HIT · no new entries · " : "") + `stop -${a.risk.stopPct}% · ladder +100%½ +200%¼ · trail ${a.risk.ladder ? a.risk.ladder.POST_TAKE_TRAIL_PCT : 30}%` + (a.risk.cap ? ` · day $${a.risk.cap.dayPnl.toFixed(2)}/-$${a.risk.cap.capUsd}` : "") + (a.risk.lastLadder ? ` · ${a.risk.lastLadder}` : (rl ? ` · last ${rl.reason}` : "")), a.risk.open.length ? `${a.risk.open.length}/${a.risk.cap ? a.risk.cap.maxOpen : 4} open` : "idle"],
@@ -146,7 +147,7 @@ function home() {
     <div class="spw"><canvas id="chart"></canvas>${wl.lastPnl!=null?`<span class="fp ${wl.lastPnl>=0?"g":"rd"}">last ${wl.lastPnl>=0?"+":""}${usd(wl.lastPnl)}</span>`:`<span class="fp mu">no trades yet</span>`}</div></div>
    ${deskCard()}
    <div class="box"><div class="bh"><b>Why they died</b><span class="mu sm">all-time</span></div>
-    ${why.length ? why.slice(0, 8).map(w => `<div class="wr"><span><b style="color:${AG[w.agent][1]}">${AG[w.agent][0]}</b> · ${h(({"liq":"low liquidity","top 10 hold":"top-10 holders too concentrated","never qualified":"never qualified in time"})[w.rule]||w.rule)}</span><span class="kb">${w.n}</span></div>`).join("") : `<div class="state">No kills yet.</div>`}</div>
+    ${why.length ? why.slice(0, 8).map(w => `<div class="wr"><span><b style="color:${AG[w.agent][1]}">${AG[w.agent][0]}</b> · ${h(({"liq":"low liquidity","top 10 hold":"top-10 holders too concentrated","never qualified":"never qualified in time","top 100 hold":"top-100 holders too concentrated","one wallet holds":"one wallet holds too much","too few holders":"too few holders","linked wallets in top 100":"linked wallets in top 100","no data: top 100":"no holder data (safe red)"})[w.rule]||w.rule)}</span><span class="kb">${w.n}</span></div>`).join("") : `<div class="state">No kills yet.</div>`}</div>
    ${s.agents.risk.open.length?`<h2>Open (paper)</h2><div class="list">${s.agents.risk.open.map(p=>`<div class="row" data-mint="${h(p.mint)}"><span>${h(p.name)}</span><span class="r">${usd(p.size)}</span></div>`).join("")}</div>`:""}`;
   spark($("#chart"), D.chart || []); wire();
   V.querySelectorAll(".ar").forEach(r => r.onclick = () => { if (r.dataset.ag === "auditor") sub = {kind:"auditor"}; else if (r.dataset.ag === "logger") sub = {kind:"logger"}; else tab = "agents"; render(); });
@@ -219,7 +220,7 @@ function account() {
 function auditor() {
   const a = D.state.agents.auditor, la = a.last, ev = a.events;
   V.innerHTML = `<button class="back" id="bk">‹ Back</button><h2>Auditor</h2><div class="sub">${a.taken} taken apart · ${a.rejected} rejected</div>
-   ${la?`<div class="list">${la.layers.map(l=>{ const live = ev.find(e=>e.mint===la.mint&&e.n===l.n); return `<div class="layer"><span>${l.n}. ${h(l.name)}</span><span class="v ${l.pass===true?"p":l.pass===false?"f":"n"}">${l.pass===true?"✓ ":l.pass===false?"✕ ":""}${h(l.value)}</span></div>`;}).join("")}</div>
+   ${la?`<div class="list">${la.layers.map(l=>{ const live = ev.find(e=>e.mint===la.mint&&e.n===l.n); return `<div class="layer"><span>${l.n}. ${h(l.name)}</span><span class="v ${l.pass===true?"p":l.pass===false?"f":"n"}">${l.pass===true?"✓ ":l.pass===false?"✕ ":""}${h(l.value)}</span></div>`;}).join("")}${HS(la.holderStats)}</div>
    <div class="row" data-mint="${h(la.mint)}" style="color:var(--blue)">Open coin ›</div>`:`<div class="state">No audits yet.</div>`}
    <h2>Recent</h2><div class="list">${a.list.map(x=>`<div class="row" data-mint="${h(x.mint)}"><span class="mono">${h(x.mint.slice(0,6))}…</span><span class="r" style="color:${x.passed?css("--green"):css("--red")}">${x.passed?"8/8":h(x.reason)}</span></div>`).join("")}</div>`;
   $("#bk").onclick = () => { sub = null; render(); }; wire();
@@ -229,7 +230,7 @@ async function coin(mint) {
   let c; try { c = await get(`coin/${encodeURIComponent(mint)}.json`); } catch(e) { V.querySelector(".state").textContent = "No data for this coin yet."; V.querySelector(".state").className = "state err"; return; }
   V.innerHTML = `<button class="back" id="bk">‹ Back</button><h2>${h(c.name||mint.slice(0,8))} <span class="sub">${h(c.symbol||"")}</span></h2>
    <canvas id="candles"></canvas>${c.exitLine?`<div class="legend">- - Risk trailing stop ${c.exitLine.toPrecision(4)}</div>`:""}
-   ${c.audit?`<div class="list">${c.audit.layers.map(l=>`<div class="layer"><span>${l.n}. ${h(l.name)}</span><span class="v ${l.pass===true?"p":l.pass===false?"f":"n"}">${h(l.value)}</span></div>`).join("")}<div class="layer"><span>Holders</span><span>${c.audit.holders??"—"}</span></div></div>`:""}
+   ${c.audit?`<div class="list">${c.audit.layers.map(l=>`<div class="layer"><span>${l.n}. ${h(l.name)}</span><span class="v ${l.pass===true?"p":l.pass===false?"f":"n"}">${h(l.value)}</span></div>`).join("")}<div class="layer"><span>Holders</span><span>${c.audit.holders??"—"}</span></div>${HS(c.audit.holderStats)}</div>`:""}
    <a class="btn row list" style="justify-content:center" href="${h(c.link)}" target="_blank" rel="noopener">Open on FOMO</a>`;
   $("#bk").onclick = () => { sub = null; render(); }; candles($("#candles"), c.candles, c.exitLine);
 }
