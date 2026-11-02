@@ -5,7 +5,8 @@ const $ = s => document.querySelector(s), V = $("#view");
 const h = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const usd = (n, d=2) => n == null ? "—" : (n < 0 ? "-" : "") + "$" + Math.abs(n).toLocaleString("en-US", {minimumFractionDigits:d, maximumFractionDigits:d});
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-let frag = new URLSearchParams(location.hash.slice(1)).get("d");
+const FP = new URLSearchParams(location.hash.slice(1)); let frag = FP.get("d");
+if (FP.get("t")) localStorage.setItem("desk_t", FP.get("t"));
 if (frag) { localStorage.setItem("desk_d", frag); history.replaceState(null, "", location.pathname); }
 const DP = localStorage.getItem("desk_d");
 const D = { state:null, chart:null, activity:null, err:null };
@@ -17,15 +18,36 @@ async function load() {
   if (!DP) { D.err = "No data link. Open the app with the link that ends in #d=…"; return render(); }
   try { [D.state, D.chart, D.activity] = await Promise.all([get("state.json"), get("chart.json"), get("activity.json")]); D.err = null; toasts(); }
   catch (e) { D.err = "Can't reach the desk data (" + e.message + ")."; }
+  if (LIVE.d && D.state) Object.assign(D.state, LIVE.d);
   render();
 }
+// Live relay via ntfy.sh (secret topic from #t=), gzip+base64 compact state every ~5s.
+const LT = localStorage.getItem("desk_t"), LIVE = { d:null, ts:0 };
+async function live() {
+  if (!LT || !window.DecompressionStream) return;
+  try {
+    const r = await fetch(`https://ntfy.sh/${encodeURIComponent(LT)}/json?poll=1&since=latest`, {cache:"no-store"});
+    const line = (await r.text()).trim().split("\n").pop(); if (!line) return;
+    const m = JSON.parse(line), bin = Uint8Array.from(atob(m.message), c => c.charCodeAt(0));
+    const d = JSON.parse(await new Response(new Blob([bin]).stream().pipeThrough(new DecompressionStream("gzip"))).text());
+    if (d.liveTs * 1000 <= LIVE.ts) return;
+    LIVE.d = d; LIVE.ts = d.liveTs * 1000; delete d.liveTs;
+    if (D.state) { Object.assign(D.state, d); D.err = null; toasts(); render(); }
+  } catch (e) {}
+}
+function liveBadge() {
+  const b = $("#badge"); if (!b || !D.state) return;
+  const age = Math.round((Date.now() - LIVE.ts) / 1000);
+  b.textContent = (D.state.mode === "PAPER" ? "PAPER" : "PAPER?") + (LIVE.ts && age < 60 ? ` · LIVE ${age}s` : "");
+}
+if (LT) { live(); setInterval(live, 4000); setInterval(liveBadge, 1000); }
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => { tab = b.dataset.tab; sub = null; document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b)); render(); });
 
 function render() {
   if (D.err && !D.state) { V.innerHTML = `<div class="state err">${h(D.err)}</div>`; return; }
   if (!D.state) { V.innerHTML = `<div class="state">Loading…</div>`; return; }
   $("#badge").textContent = D.state.mode === "PAPER" ? "PAPER" : "PAPER?";
-  topbar();
+  topbar(); if (LT) liveBadge();
   if (sub) return sub.kind === "coin" ? coin(sub.mint) : sub.kind === "logger" ? logger() : auditor();
   ({home, agents, activity, account})[tab]();
   if (D.err) V.insertAdjacentHTML("afterbegin", `<div class="state err" style="padding:8px">${h(D.err)} Showing last data.</div>`);
