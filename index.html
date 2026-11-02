@@ -1,10 +1,15 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="theme-color" content="#000"><title>Desk</title>
+<meta name="theme-color" content="#050505"><title>Desk</title>
 <link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="style.css"></head><body>
-<header id="top"><span id="title">Desk</span><span id="badge" class="badge">PAPER</span></header>
+<div id="toasts"></div>
+<header id="top">
+ <div class="tb"><span id="clock">--:--</span><button id="night" class="pt">night run</button><span id="agcount" class="mu">6 agents</span></div>
+ <div class="hd"><span class="logo">◎</span><span id="title">FOMO Desk</span><span id="badge" class="badge">PAPER</span></div>
+ <div class="mu sm">Solana memes • strict risk • paper → live locked · <span id="lag"></span></div>
+</header>
 <main id="view"><div class="state">Loading…</div></main>
 <nav id="tabs">
  <button data-tab="home" class="on">Home</button><button data-tab="agents">Agents</button>

@@ -15,7 +15,7 @@ const BASE = location.hostname.endsWith("github.io") ? `https://raw.githubuserco
 async function get(f) { const r = await fetch(`${BASE}${f}?t=${Date.now()}`, {cache:"no-store"}); if (!r.ok) throw new Error(r.status); return r.json(); }
 async function load() {
   if (!DP) { D.err = "No data link. Open the app with the link that ends in #d=…"; return render(); }
-  try { [D.state, D.chart, D.activity] = await Promise.all([get("state.json"), get("chart.json"), get("activity.json")]); D.err = null; }
+  try { [D.state, D.chart, D.activity] = await Promise.all([get("state.json"), get("chart.json"), get("activity.json")]); D.err = null; toasts(); }
   catch (e) { D.err = "Can't reach the desk data (" + e.message + ")."; }
   render();
 }
@@ -24,8 +24,9 @@ document.querySelectorAll("nav button").forEach(b => b.onclick = () => { tab = b
 function render() {
   if (D.err && !D.state) { V.innerHTML = `<div class="state err">${h(D.err)}</div>`; return; }
   if (!D.state) { V.innerHTML = `<div class="state">Loading…</div>`; return; }
-  $("#badge").textContent = D.state.mode;
-  if (sub) return sub.kind === "coin" ? coin(sub.mint) : auditor();
+  $("#badge").textContent = D.state.mode === "PAPER" ? "PAPER" : "PAPER?";
+  topbar();
+  if (sub) return sub.kind === "coin" ? coin(sub.mint) : sub.kind === "logger" ? logger() : auditor();
   ({home, agents, activity, account})[tab]();
   if (D.err) V.insertAdjacentHTML("afterbegin", `<div class="state err" style="padding:8px">${h(D.err)} Showing last data.</div>`);
 }
@@ -61,13 +62,111 @@ function wire() {
   V.querySelectorAll(".card").forEach(c => c.onclick = () => { if (c.dataset.k === "auditor") { sub = {kind:"auditor"}; render(); } else { tab = "agents"; render(); } });
   V.querySelectorAll("[data-mint]").forEach(r => r.onclick = () => { sub = {kind:"coin", mint:r.dataset.mint}; render(); });
 }
+const AG = {scanner:["Scanner","#6cb8ff","🔭"],auditor:["Auditor","#ffb35c","🔬"],analyst:["Analyst","#b79cff","🧠"],executor:["Executor","#39ff88","⚡"],risk:["Risk","#ff8fc8","🛡"],logger:["Logger","#5ce1e6","📜"]};
+const ago = ts => { if (!ts) return "—"; const s = Math.max(0, (Date.now() - new Date(ts)) / 1000); return s < 60 ? Math.round(s) + "s" : s < 3600 ? Math.round(s/60) + "m" : Math.round(s/3600) + "h"; };
+const hm = ts => new Date(ts).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", hour12:false});
+const px = p => p == null ? "—" : p >= 1 ? "$" + p.toFixed(2) : "$" + p.toPrecision(3);
+let night = localStorage.getItem("desk_night") === "1";
+function since23() { const d = new Date(); if (d.getHours() < 23) d.setDate(d.getDate() - 1); d.setHours(23,0,0,0); return d; }
+const inWin = ts => !night || new Date(ts) >= since23();
+function verb(l) {
+  const a = l.action, r = l.reason || "";
+  if (l.agent === "scanner") return a === "pass" ? `passed $${l.symbol} → Auditor` : `killed $${l.symbol} · ${r}`;
+  if (l.agent === "auditor") return a === "pass" ? `$${l.symbol} 8/8 clean → Analyst` : `rejected $${l.symbol} 💀 ${r}`;
+  if (l.agent === "analyst") return a === "pass" ? `scored $${l.symbol} ${r} ✓` : `scored $${l.symbol} ${r} ✕`;
+  if (a === "buy") return `paper-bought $${l.symbol} · ${r}`;
+  if (a === "exit") return `closed $${l.symbol} · ${r}`;
+  return `${a} $${l.symbol} ${r}`;
+}
+function logLine(l) {
+  const c = AG[l.agent]?.[1] || "#aaa", pn = l.pnl != null ? `<span class="${l.pnl>=0?"g":"rd"}">${l.pnl>=0?"+":""}${usd(l.pnl)}</span>` : "";
+  return `<div class="ll" data-mint="${h(l.mint)}"><span class="t">${hm(l.ts)}</span><b style="color:${c}">${AG[l.agent]?.[0].toUpperCase()||h(l.agent)}</b><span class="x">${h(verb(l))}</span>${pn}</div>`;
+}
+function deskCard() {
+  const s = D.state, a = s.agents, st = s.settings, hb = s.heartbeats, now = s.now || {}, lg = s.logger || {lines:[],reasons:0,killed:0};
+  const lines = lg.lines.filter(l => inWin(l.ts));
+  const scanned = night ? lines.filter(l => l.agent === "scanner").length : a.scanner.passed + a.scanner.killed;
+  const traded = night ? lines.filter(l => l.action === "buy").length : a.executor.trades;
+  const lastOf = ag => lines.find(l => l.agent === ag);
+  const surv = a.auditor.taken ? Math.round(100 * (a.auditor.taken - a.auditor.rejected) / a.auditor.taken) + "%" : "—";
+  const la = a.auditor.last, an = a.analyst.last, ex = a.executor.last, rl = a.risk.lastExit;
+  const rows = {
+    scanner: [`new pairs · ${a.scanner.pools} seen · ${a.scanner.waiting} waiting`, `${a.scanner.pools}`],
+    auditor: [la && !la.passed ? `latest 💀 ${la.reason}` : la ? `latest ${la.mint.slice(0,4)} 8/8 clean` : "no coin reached audit yet", `${surv} survive`],
+    analyst: [an ? `last score ${an.score} vs ${st["analyst.min_score"]} needed` : `scores survivors · needs ${st["analyst.min_score"]}`, `${a.analyst.scored} scored`],
+    executor: [`cap ${st["executor.stack_pct"]}% of stack` + (ex && ex.sizeUsd ? ` · last ${usd(ex.sizeUsd)}` : " · no trades yet"), `${a.executor.trades}`],
+    risk: [`stop -${a.risk.stopPct}% · trail ${a.risk.trailPct}%` + (rl ? ` · last ${rl.reason}` : ""), a.risk.open.length ? `${a.risk.open.length} open` : "idle"],
+    logger: ["reason for all · every decision logged", `${lg.reasons} reasons`],
+  };
+  const row = k => { const [n, c, ic] = AG[k], age = k === "logger" ? null : hb[k];
+    const fresh = k === "logger" ? true : age && (Date.now() - new Date(age)) < 120000;
+    const nowTxt = k === "logger" ? (lines[0] ? verb(lines[0]) : "nothing logged yet") : (now[k]?.text || (lastOf(k) ? verb(lastOf(k)) : "idle"));
+    return `<div class="ar" data-ag="${k}"><div class="ic" style="background:${c}22;color:${c}">${ic}</div>
+      <div class="am"><div class="an">${n} <span class="pd ${fresh?"on":""}" style="--c:${c}"></span><span class="age">${k==="logger"?"":ago(age)}</span></div>
+      <div class="as">${h(rows[k][0])}</div><div class="now" style="color:${c}">${h(nowTxt)}</div></div>
+      <div class="mb" style="color:${c};background:${c}1f">${h(rows[k][1])}</div></div>`; };
+  return `<div class="box hero"><div class="bh"><b>Desk • 6 agents</b><span><span class="mu">${scanned} scanned</span> <span class="g">${traded} traded</span></span></div>
+    ${Object.keys(AG).map(row).join("")}</div>
+   <div class="box"><div class="bh"><b>Live feed</b><span class="kb">${lg.killed} killed</span></div>
+    <div class="feed">${lines.slice(0, 25).map(logLine).join("") || `<div class="state">Nothing logged ${night?"since 23:00":"yet"}.</div>`}</div></div>`;
+}
 function home() {
-  const s = D.state, ch = s.balance - s.startStack;
-  V.innerHTML = `<div class="sub">${s.mode} balance</div><div class="bal odo" id="odo"></div>
-   <div class="sub" style="color:${ch>=0?css("--green"):css("--red")}">${ch>=0?"+":""}${usd(ch)} since start</div>
-   <canvas id="chart"></canvas>${cards()}
-   ${s.agents.risk.open.length?`<h2>Open</h2><div class="list">${s.agents.risk.open.map(p=>`<div class="row" data-mint="${h(p.mint)}"><span>${h(p.name)}</span><span class="r">${usd(p.size)}</span></div>`).join("")}</div>`:""}`;
-  odometer($("#odo"), s.balance); line($("#chart"), D.chart || []); wire();
+  const s = D.state, st = s.settings, ch = s.balance - s.startStack, pct = 100 * ch / s.startStack, wl = s.wl || {w:0,l:0,lastPnl:null};
+  const [whole, dec] = s.balance.toFixed(2).split(".");
+  const why = (s.why || []);
+  V.innerHTML = `
+   <div class="tape"><div class="tt" style="animation-delay:-${(Date.now()/1000)%40}s">${[...(s.tape||[]), ...(s.tape||[])].map(t => `<span class="tk" data-mint="${h(t.mint)}"><i>${h(t.symbol.slice(0,1))}</i>$${h(t.symbol)} <span class="mu">${px(t.price)}</span> ${t.chgPct==null?"":`<span class="${t.chgPct>=0?"g":"rd"}">${t.chgPct>=0?"+":""}${t.chgPct}%</span>`}</span>`).join("") || `<span class="mu">no priced pairs yet</span>`}</div></div>
+   <div class="eq"><div class="mu sm">Equity · ${usd(s.startStack,0)} start · max size ${st["executor.stack_pct"]}%</div>
+    <div class="eqb"><span class="bigb">$${Number(whole).toLocaleString("en-US")}<small>.${dec}</small></span><span class="mx">${(s.balance/s.startStack).toFixed(2)}x</span></div>
+    <div class="sm"><span class="${ch>=0?"g":"rd"}">${ch>=0?"+":""}${usd(ch)} (${pct>=0?"+":""}${pct.toFixed(2)}%)</span> <span class="mu">· ${wl.w}W / ${wl.l}L</span></div>
+    <div class="spw"><canvas id="chart"></canvas>${wl.lastPnl!=null?`<span class="fp ${wl.lastPnl>=0?"g":"rd"}">last ${wl.lastPnl>=0?"+":""}${usd(wl.lastPnl)}</span>`:`<span class="fp mu">no trades yet</span>`}</div></div>
+   ${deskCard()}
+   <div class="box"><div class="bh"><b>Why they died</b><span class="mu sm">all-time</span></div>
+    ${why.length ? why.slice(0, 8).map(w => `<div class="wr"><span><b style="color:${AG[w.agent][1]}">${AG[w.agent][0]}</b> · ${h(({"liq":"low liquidity","top 10 hold":"top-10 holders too concentrated","never qualified":"never qualified in time"})[w.rule]||w.rule)}</span><span class="kb">${w.n}</span></div>`).join("") : `<div class="state">No kills yet.</div>`}</div>
+   ${s.agents.risk.open.length?`<h2>Open (paper)</h2><div class="list">${s.agents.risk.open.map(p=>`<div class="row" data-mint="${h(p.mint)}"><span>${h(p.name)}</span><span class="r">${usd(p.size)}</span></div>`).join("")}</div>`:""}`;
+  spark($("#chart"), D.chart || []); wire();
+  V.querySelectorAll(".ar").forEach(r => r.onclick = () => { if (r.dataset.ag === "auditor") sub = {kind:"auditor"}; else if (r.dataset.ag === "logger") sub = {kind:"logger"}; else tab = "agents"; render(); });
+}
+function spark(cv, pts) {
+  const r = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight; cv.width = W*r; cv.height = H*r;
+  const g = cv.getContext("2d"); g.scale(r, r); const vs = pts.map(p => p.v);
+  const lo = Math.min(...vs), hi = Math.max(...vs), flat = vs.length < 2 || hi - lo < 0.005;
+  const col = !flat && vs.at(-1) < vs[0] ? css("--red") : css("--neon");
+  g.strokeStyle = col; g.lineWidth = 2.5; g.shadowColor = col; g.shadowBlur = 10; g.beginPath();
+  if (flat) { g.moveTo(0, H/2); g.lineTo(W, H/2); }
+  else vs.forEach((v, i) => { const x = i/(vs.length-1)*W, y = H-6-(v-lo)/(hi-lo)*(H-12); i ? g.lineTo(x, y) : g.moveTo(x, y); });
+  g.stroke();
+}
+function logger() {
+  const lg = D.state.logger;
+  V.innerHTML = `<button class="back" id="bk">‹ Back</button><h2>Logger</h2><div class="sub">${lg.reasons} reasons logged · ${lg.killed} killed</div>
+   <div class="box"><div class="feed">${lg.lines.map(logLine).join("") || `<div class="state">Nothing yet.</div>`}</div></div>`;
+  $("#bk").onclick = () => { sub = null; render(); }; wire();
+}
+// toasts: fire once per new logger line / new trade, after first load
+let seen = null;
+function toasts() {
+  const s = D.state, lines = s.logger?.lines || [], key = l => l.ts + l.agent + l.mint + l.action;
+  if (seen === null) { seen = new Set(lines.map(key)); return; }
+  const fresh = lines.filter(l => !seen.has(key(l))); lines.forEach(l => seen.add(key(l)));
+  if (!fresh.length) return;
+  const trades = fresh.filter(l => l.action === "buy" || l.action === "exit");
+  trades.slice(0, 3).forEach(l => toast(`${AG[l.agent][0].toUpperCase()} · ${hm(l.ts)}`, verb(l), l.pnl));
+  const rest = fresh.length - trades.length;
+  if (rest) { const k = fresh.filter(l => l.action === "kill").length;
+    toast(`DESK · ${hm(fresh[0].ts)}`, `${rest} new decisions · ${k} killed`, null, fresh.length === 1 ? verb(fresh[0]) : "Filter killed everything that failed the rules"); }
+}
+function toast(t, msg, pnl, sub2) {
+  const el = document.createElement("div"); el.className = "toast";
+  el.innerHTML = `<div><div class="tt1">${h(t)}</div><div>${h(msg)}</div>${sub2?`<div class="mu sm">${h(sub2)}</div>`:""}</div>${pnl!=null?`<b class="${pnl>=0?"g":"rd"}">${pnl>=0?"+":""}${usd(pnl)}</b>`:""}`;
+  $("#toasts").appendChild(el); setTimeout(() => el.classList.add("out"), 4200); setTimeout(() => el.remove(), 4800);
+}
+function topbar() {
+  $("#clock").textContent = new Date().toLocaleTimeString([], {hour:"2-digit", minute:"2-digit", hour12:false});
+  const s = D.state; if (!s) return;
+  const up = Object.values(s.heartbeats||{}).filter(t => Date.now() - new Date(t) < 120000).length;
+  $("#agcount").textContent = `${up}/5 live · 6 agents`;
+  $("#lag").textContent = `data ${ago(s.ts)} old`;
 }
 function agents() {
   const a = D.state.agents, hb = D.state.heartbeats;
@@ -121,5 +220,8 @@ function candles(cv, cs, exitLine) {
     g.fillRect(x-bw/2, Math.min(y(c.o), y(c.c)), bw, Math.max(1, Math.abs(y(c.o)-y(c.c)))); });
   if (exitLine) { g.setLineDash([6,4]); g.strokeStyle = css("--orange"); g.beginPath(); g.moveTo(0, y(exitLine)); g.lineTo(W, y(exitLine)); g.stroke(); }
 }
-load(); setInterval(load, 15000); addEventListener("resize", render);
+$("#night").onclick = () => { night = !night; localStorage.setItem("desk_night", night ? "1" : "0"); $("#night").classList.toggle("on", night); render(); };
+$("#night").classList.toggle("on", night);
+const GH = location.hostname.endsWith("github.io");
+load(); setInterval(load, GH ? 20000 : 4000); setInterval(topbar, 1000); addEventListener("resize", render);
 })();

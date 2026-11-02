@@ -33,3 +33,34 @@ a{color:var(--blue);text-decoration:none}
 .layer .v.p{color:var(--green)}.layer .v.f{color:var(--red)}.layer .v.n{color:var(--sec)}
 #candles{height:260px;background:var(--c1);border-radius:14px;margin:12px 0}
 .legend{color:var(--orange);font-size:12px}
+/* restyle: x_insider4 look */
+:root{--bg:#050505;--neon:#39ff88;--green:#39ff88;--red:#ff4d5e;--c1:#111214;--c2:#1f2023}
+.g{color:var(--neon)}.rd{color:var(--red)}.mu{color:#8a8d93}.sm{font-size:12px}
+header{display:block;padding:calc(8px + env(safe-area-inset-top)) 16px 8px;background:rgba(5,5,5,.9)}
+.tb{display:flex;justify-content:space-between;align-items:center;font:600 13px var(--sans)}
+.pt{min-height:28px;border-radius:14px;border:1px solid #2a2b2f;background:#141518;color:#8a8d93;font:600 12px var(--sans);padding:0 12px}.pt.on{background:var(--neon);color:#000;border-color:var(--neon)}
+.hd{display:flex;align-items:center;gap:8px;margin:8px 0 2px}.logo{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#39ff88,#5ce1e6);color:#000;display:grid;place-items:center;font-weight:900}
+#title{font-size:22px;font-weight:800}.badge{background:#ffd60a}
+.tape{overflow:hidden;margin:4px -16px 10px;border-block:1px solid #16171a;padding:7px 0;white-space:nowrap}
+.tt{display:inline-block;animation:tape 40s linear infinite}@keyframes tape{to{transform:translateX(-50%)}}
+.tk{margin:0 14px;font:600 13px var(--sans)}.tk i{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#222;font-style:normal;font-size:10px;margin-right:4px}
+.eq{margin:6px 0 14px}.eqb{display:flex;align-items:center;gap:10px}.bigb{font:800 46px var(--sans);letter-spacing:-1.5px}.bigb small{font-size:24px;color:#8a8d93}
+.mx{background:rgba(57,255,136,.14);color:var(--neon);font:700 13px var(--sans);padding:3px 8px;border-radius:10px}
+.spw{position:relative}#chart{height:90px;margin:8px 0 0}.fp{position:absolute;right:4px;top:0;background:#16171a;border:1px solid #26272b;border-radius:12px;padding:3px 9px;font:600 12px var(--sans)}
+.box{background:var(--c1);border:1px solid #1a1b1e;border-radius:18px;padding:12px 14px;margin:12px 0}
+.box.hero{border-color:#23402e;box-shadow:0 0 24px rgba(57,255,136,.06)}
+.bh{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:15px}.bh span{font-size:12px;font-weight:600}
+.ar{display:flex;gap:10px;align-items:center;padding:9px 0;border-top:1px solid #1a1b1e;cursor:pointer}
+.ic{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:17px;flex:none}
+.am{flex:1;min-width:0}.an{font:700 15px var(--sans);display:flex;align-items:center;gap:6px}.age{color:#6a6d73;font:500 11px var(--sans)}
+.as{color:#8a8d93;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.now{font:500 12px var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pd{width:7px;height:7px;border-radius:50%;background:#444}.pd.on{background:var(--c);box-shadow:0 0 0 0 var(--c);animation:pulse 1.6s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 70%,transparent)}100%{box-shadow:0 0 0 7px transparent}}
+.mb{font:700 12px var(--sans);padding:4px 8px;border-radius:10px;white-space:nowrap;flex:none}
+.kb{background:rgba(255,77,94,.15);color:var(--red);font:700 12px var(--sans);padding:2px 8px;border-radius:10px}
+.feed{max-height:340px;overflow:auto}.ll{display:flex;gap:6px;font:12px/1.5 var(--mono);padding:3px 0;align-items:baseline}.ll .t{color:#6a6d73}.ll .x{flex:1;color:#d6d7da;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wr{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-top:1px solid #1a1b1e;font-size:13px}
+#toasts{position:fixed;top:calc(8px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);z-index:9;width:min(360px,92vw);display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.toast{background:#17181b;border:1px solid #2a2b2f;border-radius:16px;padding:10px 14px;display:flex;justify-content:space-between;gap:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.6);animation:drop .35s ease-out}
+.toast .tt1{font:700 11px var(--sans);color:#8a8d93;letter-spacing:.5px}.toast.out{opacity:0;transform:translateY(-10px);transition:.5s}
+@keyframes drop{from{transform:translateY(-30px);opacity:0}}
