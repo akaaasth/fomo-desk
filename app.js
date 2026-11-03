@@ -39,7 +39,7 @@ async function live() {
 function liveBadge() {
   const b = $("#badge"); if (!b || !D.state) return;
   const age = Math.round((Date.now() - LIVE.ts) / 1000);
-  b.textContent = (D.state.mode === "PAPER" ? "PAPER" : "PAPER?") + (LIVE.ts && age < 60 ? ` · LIVE ${age}s` : "");
+  b.textContent = (D.state.mode === "LIVE" ? "LIVE ALERTS" : D.state.mode === "PAPER" ? "PAPER" : "MODE?") + (LIVE.ts && age < 60 ? ` · feed ${age}s` : "");
 }
 if (LT) { live(); setInterval(live, 4000); setInterval(liveBadge, 1000); }
 document.querySelectorAll("nav button").forEach(b => b.onclick = () => { tab = b.dataset.tab; sub = null; document.querySelectorAll("nav button").forEach(x => x.classList.toggle("on", x === b)); render(); });
@@ -47,7 +47,7 @@ document.querySelectorAll("nav button").forEach(b => b.onclick = () => { tab = b
 function render() {
   if (D.err && !D.state) { V.innerHTML = `<div class="state err">${h(D.err)}</div>`; return; }
   if (!D.state) { V.innerHTML = `<div class="state">Loading…</div>`; return; }
-  $("#badge").textContent = D.state.mode === "PAPER" ? "PAPER" : "PAPER?";
+  $("#badge").textContent = D.state.mode === "LIVE" ? "LIVE ALERTS" : D.state.mode === "PAPER" ? "PAPER" : "MODE?";
   topbar(); if (LT) liveBadge();
   if (sub) return sub.kind === "coin" ? coin(sub.mint) : sub.kind === "logger" ? logger() : auditor();
   ({home, agents, activity, account})[tab]();
